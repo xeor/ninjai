@@ -13,6 +13,10 @@ from IPython.core.plugin import Plugin
 from IPython.core.magic import Magics, magics_class, line_magic, cell_magic, line_cell_magic
 from IPython.core import ipapi
 
+from IPython.config.configurable import Configurable
+from IPython.utils.traitlets import Int, Float, Unicode, Bool
+
+
 @magics_class
 class DirectoryMagic(Magics):
     """
@@ -126,9 +130,8 @@ class NinjaiPlugin(Plugin):
     ip = None
     config = None
 
-    def __init__(self, ip, config):
+    def __init__(self, ip):
         self.ip = ip
-        self.config = config # As a read only reference.. Nothing happened on changes
 
         self.setup_prompt()
         self.setup_magics()
@@ -155,7 +158,8 @@ class NinjaiPlugin(Plugin):
 def load_ipython_extension(ip):
     print 'loaded extension'
 
-    plugin = NinjaiPlugin(ip=ip, config=ip.config)
+    plugin = NinjaiPlugin(ip=ip)
+
     try:
         ip.plugin_manager.register_plugin('ninjai', plugin)
     except KeyError:
