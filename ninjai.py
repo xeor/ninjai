@@ -55,11 +55,9 @@ class PromptHandler(object):
     do something like self.ip.user_ns['function_name'] = your_function, first.
 
     ip - is the active TerminalInteractiveShell object, if you need that.
-    priority - is the sort order of your text in the prompt
     """
 
     ip = None # In case you need it..
-    priority = 999 # Defaults to at the end
 
     def __init__(self, ip):
         self.ip = ip
@@ -71,9 +69,7 @@ class TestPrompt(PromptHandler):
     def prompt(self):
         return '{color.Blue}test prompt'
 
-class GenericPrompts(PromptHandler):
-    priority = 10
-
+class GenericPrompt(PromptHandler):
     def prompt(self):
         prompt = ''
         prompt += r'{color.LightGreen}\u@\h' # Hostname
@@ -83,28 +79,35 @@ class GenericPrompts(PromptHandler):
 
 class Prompt(object):
     ip = None
-    prompts = []
+    prompts = {}
+
+    # This works just like the generic IPython prompt setting, except it supports {PromptClass} where
+    # PromptClass is a class that is subclassing the PromptHandler class. This class have access to
+    # TerminalInteractiveShell, and whatever its prompt() function returns is replaced with its place in
+    # the prompt variable. Since we are dynamicly building our prompt like this, you can also set colors
+    # and other magic (like \u@\h), in your class.
+    prompt = '{GenericPrompt}{TestPrompt}'
 
     def __init__(self, ip):
         self.ip = ip
         self.populate_prompts()
 
     def populate_prompts(self):
-        # Get all classes that inherits the PromptHandler
-        classes = [ c[1] for c in inspect.getmembers(sys.modules[__name__]) if (inspect.isclass(c[1]) and issubclass(c[1], PromptHandler))]
+        # Dynamicly get all classes that inherits the PromptHandler
+        classes = [ c for c in inspect.getmembers(sys.modules[__name__]) if (inspect.isclass(c[1]) and issubclass(c[1], PromptHandler))]
         for cls in classes:
-            if cls is PromptHandler:
+            cls_name = cls[0]
+            cls_obj = cls[1]
+
+            if cls_obj is PromptHandler:
                 continue
 
-            cls = cls(self.ip)
-            self.prompts.append((cls.priority, cls.prompt))
+            self.prompts[cls_name] = cls_obj(self.ip).prompt()
 
     def generate_prompt(self):
-        prompt_str = ''
-        for prompt_obj in sorted(self.prompts):
-            prompt_str += prompt_obj[1]()
+        prompt_str = self.prompt.format(**self.prompts)
 
-        # Need to change this, changes to self.config.... will have no effect
+        # Need to change self.ip.prompt_manager instead of the config. Changes to self.config.... will have no effect when it is loaded.
         self.ip.prompt_manager.in_template = prompt_str
         self.ip.prompt_manager.in2_template = r'\C_Green|\C_LightGreen\D\C_Green> '
         self.ip.prompt_manager.out_template = '<\#> '
@@ -127,20 +130,23 @@ class NinjaiPlugin(Plugin):
         self.ip = ip
         self.config = config # As a read only reference.. Nothing happened on changes
 
-        self.setup_dyna_prompt()
+        self.setup_prompt()
         self.setup_magics()
+        self.setup_inline()
 
-    def setup_dyna_prompt(self):
+    def setup_prompt(self):
         prompt = Prompt(self.ip)
 
-        # Use 'pre_command_hook' and 'post_command_hook' later, they are available in 0.14dev..?
+        # Use 'pre_command_hook' and 'post_command_hook' later, they are available in IPython 0.14dev..?
+        # With both of them, we can time commands and have some timing stat in the prompt...
+
         # Currently, the only thing we have to play with is the pre_prompt_hook..
         self.ip.set_hook('pre_prompt_hook', prompt.pre_command)
 
     def setup_magics(self):
         self.ip.register_magics(DirectoryMagic(self.ip))
 
-    def testing(self):
+    def setup_inline(self):
         # Will be runned in the ipython user namespace
         self.ip.ex('import os')
         self.ip.ex("def up(): os.chdir('..')")
@@ -153,7 +159,6 @@ def load_ipython_extension(ip):
     try:
         ip.plugin_manager.register_plugin('ninjai', plugin)
     except KeyError:
-        # FIXME: Need to reload proper here.. Or the prompt will double up...
         print("Already loaded")
 
 def unload_ipython_extension(ip):
