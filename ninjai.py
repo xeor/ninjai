@@ -14,7 +14,7 @@ from IPython.core.magic import Magics, magics_class, line_magic, cell_magic, lin
 from IPython.core import ipapi
 
 from IPython.config.configurable import Configurable
-from IPython.utils.traitlets import Int, Float, Unicode, Bool
+from IPython.utils.traitlets import Int, Float, Unicode, Bool, CUnicode
 
 
 @magics_class
@@ -62,9 +62,11 @@ class PromptHandler(object):
     """
 
     ip = None # In case you need it..
+    ninjai = None # Ninjai object; used to get eg configs
 
-    def __init__(self, ip):
+    def __init__(self, ip=None, ninjai=None):
         self.ip = ip
+        self.ninjai = ninjai
 
     def prompt(self):
         return '{color.Red}Unconfigured prompt'
@@ -83,17 +85,13 @@ class GenericPrompt(PromptHandler):
 
 class Prompt(object):
     ip = None
+    ninjai = None
+
     prompts = {}
 
-    # This works just like the generic IPython prompt setting, except it supports {PromptClass} where
-    # PromptClass is a class that is subclassing the PromptHandler class. This class have access to
-    # TerminalInteractiveShell, and whatever its prompt() function returns is replaced with its place in
-    # the prompt variable. Since we are dynamicly building our prompt like this, you can also set colors
-    # and other magic (like \u@\h), in your class.
-    prompt = '{GenericPrompt}{TestPrompt}'
-
-    def __init__(self, ip):
+    def __init__(self, ip=None, ninjai=None):
         self.ip = ip
+        self.ninjai = ninjai
         self.populate_prompts()
 
     def populate_prompts(self):
@@ -106,10 +104,10 @@ class Prompt(object):
             if cls_obj is PromptHandler:
                 continue
 
-            self.prompts[cls_name] = cls_obj(self.ip).prompt()
+            self.prompts[cls_name] = cls_obj(ip=self.ip, ninjai=self.ninjai).prompt()
 
     def generate_prompt(self):
-        prompt_str = self.prompt.format(**self.prompts)
+        prompt_str = self.ninjai.prompt.format(**self.prompts)
 
         # Need to change self.ip.prompt_manager instead of the config. Changes to self.config.... will have no effect when it is loaded.
         self.ip.prompt_manager.in_template = prompt_str
@@ -126,11 +124,23 @@ class Prompt(object):
         pass
 
 
-class NinjaiPlugin(Plugin):
+class Ninjai(Plugin):
     ip = None
-    config = None
 
-    def __init__(self, ip):
+    # Casting version of unicode
+    prompt = CUnicode('{GenericPrompt}{TestPrompt}', config=True, help=
+      """
+      This works just like the generic IPython prompt setting, except it supports {PromptClass} where
+      PromptClass is a class that is subclassing the PromptHandler class. This class have access to
+      TerminalInteractiveShell, and whatever its prompt() function returns is replaced with its place in
+      the prompt variable. Since we are dynamicly building our prompt like this, you can also set colors
+      and other magic (like \u@\h), in your class.
+      """
+     )
+
+    def __init__(self, ip, config):
+        super(Ninjai, self).__init__(shell=ip, config=config)
+
         self.ip = ip
 
         self.setup_prompt()
@@ -138,7 +148,7 @@ class NinjaiPlugin(Plugin):
         self.setup_inline()
 
     def setup_prompt(self):
-        prompt = Prompt(self.ip)
+        prompt = Prompt(ip=self.ip, ninjai=self)
 
         # Use 'pre_command_hook' and 'post_command_hook' later, they are available in IPython 0.14dev..?
         # With both of them, we can time commands and have some timing stat in the prompt...
@@ -158,7 +168,7 @@ class NinjaiPlugin(Plugin):
 def load_ipython_extension(ip):
     print 'loaded extension'
 
-    plugin = NinjaiPlugin(ip=ip)
+    plugin = Ninjai(ip=ip, config=ip.config)
 
     try:
         ip.plugin_manager.register_plugin('ninjai', plugin)
@@ -167,3 +177,4 @@ def load_ipython_extension(ip):
 
 def unload_ipython_extension(ip):
     print 'unloading'
+    ip.plugin_manager.unregister_plugin('ninjai')
