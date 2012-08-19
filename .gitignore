@@ -1,3 +1,4 @@
 *.py[co]
 *.*~
 *\#
+profile_ninjai/config.py
