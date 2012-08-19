@@ -1,4 +1,7 @@
 *.py[co]
 *.*~
 *\#
+_area51/
 profile_ninjai/config.py
+profile_ninjai/db/
+profile_ninjai/history.sqlite
