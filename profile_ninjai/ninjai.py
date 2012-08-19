@@ -13,7 +13,6 @@ from IPython.core.plugin import Plugin
 from IPython.core.magic import Magics, magics_class, line_magic, cell_magic, line_cell_magic
 from IPython.core import ipapi
 
-from IPython.config.configurable import Configurable
 from IPython.utils.traitlets import Int, Float, Unicode, Bool, CUnicode
 
 
@@ -128,15 +127,8 @@ class Ninjai(Plugin):
     ip = None
 
     # Casting version of unicode
-    prompt = CUnicode('{GenericPrompt}{TestPrompt}', config=True, help=
-      """
-      This works just like the generic IPython prompt setting, except it supports {PromptClass} where
-      PromptClass is a class that is subclassing the PromptHandler class. This class have access to
-      TerminalInteractiveShell, and whatever its prompt() function returns is replaced with its place in
-      the prompt variable. Since we are dynamicly building our prompt like this, you can also set colors
-      and other magic (like \u@\h), in your class.
-      """
-     )
+    # FIXME; help=... doesn't show up in --help-all, therefor it is left out
+    prompt = CUnicode('{GenericPrompt}{TestPrompt}', config=True)
 
     def __init__(self, ip, config):
         super(Ninjai, self).__init__(shell=ip, config=config)
