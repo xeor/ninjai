@@ -1,11 +1,15 @@
 ninjai
 ======
 
-Ninjai Is Not Just Another IPython-profile
+Ninjai Is Not Just Another Ipython-extension
 
 
 Installation
 ============
 
-* Make the profile globally accessible trough 'ipython --profile ninjai' ** ln -s ./profile_ninjai "$(ipython locate)"
-* As small footprint as possible, loads the profile only if you are in the projects folder ** cd /home/user/..../ninjai && ipython --profile ninjai
+* Create a sh (currently pysh) profile in IPython using 'ipython --profile pysh'
+* Append this 3 lines to the profile; nano $(ipython locate profile pysh)/ipython_config.py
+
+    import sys
+    sys.path.append('/home/user/path/to/ninjai')
+    c.InteractiveShellApp.extensions = ['ninjai',]
