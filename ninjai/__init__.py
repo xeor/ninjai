@@ -6,9 +6,11 @@ Author: Lars Solberg <lars.solberg@gmail.com>
 Author: Jack Weaver <jack.weaver@gmail.com>
 """
 
-import inspect
 import sys
+import os
+import inspect
 import datetime
+import pkgutil
 
 from IPython.core.plugin import Plugin
 from IPython.core.magic import Magics, magics_class, line_magic, cell_magic, line_cell_magic
@@ -63,57 +65,66 @@ class PromptHandler(object):
 
     ip = None # In case you need it..
     ninjai = None # Ninjai object; used to get eg configs
+    info = None # Ninjai info which is populated in this file with different info
 
-    def __init__(self, ip=None, ninjai=None):
+    def __init__(self, ip=None, ninjai=None, info=None):
         self.ip = ip
         self.ninjai = ninjai
+        self.info = info
 
     def prompt(self):
         return '{color.Red}Unconfigured prompt'
-
-class TestPrompt(PromptHandler):
-    def prompt(self):
-        return '{color.Blue}test prompt'
-
-class GenericPrompt(PromptHandler):
-    def prompt(self):
-        prompt = ''
-        prompt += r'{color.LightGreen}\u@\h' # Hostname
-        prompt += r'{color.LightBlue}[{color.LightCyan}\Y1{color.LightBlue}]' # Path
-        prompt += r'{color.Green}|\#> '
-        return prompt
 
 class Prompt(object):
     ip = None
     ninjai = None
 
-    prompts = {}
+    prompts = {} # A list of all our prompts, populated dynamicly from the ./prommpts/ directory..
 
     # Is sent with the ip object to each prompt handler. We can store different info here
     # which we can get from eg different types of hooks.
     info = {
-        'starttime': None, # Populated before each command is run with the current timedate
+        'starttime': None, # Populated before each command is run with a datetime.now()
         }
 
     def __init__(self, ip=None, ninjai=None):
         self.ip = ip
         self.ninjai = ninjai
+
+        self.prompts_path = os.path.join(self.ninjai.location, 'prompts')
         self.populate_prompts()
 
     def populate_prompts(self):
-        # Dynamicly get all classes that inherits the PromptHandler
-        classes = [ c for c in inspect.getmembers(sys.modules[__name__]) if (inspect.isclass(c[1]) and issubclass(c[1], PromptHandler))]
-        for cls in classes:
+        prompt_classes = []
+
+        for modLoader, name, isPkg in pkgutil.iter_modules([self.prompts_path]):
+            full_import_path = 'ninjai.prompts.%s' % name
+            try:
+                __import__(full_import_path)
+                module_obj = sys.modules[full_import_path]
+            except ImportError, e:
+                print 'Unable to import prompt %s. Error: %s' % (full_import_path, e)
+                pass
+
+            prompt_classes += [ c for c in inspect.getmembers(sys.modules[full_import_path]) if (inspect.isclass(c[1]) and issubclass(c[1], PromptHandler))]
+
+        for cls in prompt_classes:
             cls_name = cls[0]
             cls_obj = cls[1]
 
             if cls_obj is PromptHandler:
                 continue
 
-            self.prompts[cls_name] = cls_obj(ip=self.ip, ninjai=self.ninjai).prompt()
+            self.prompts[cls_name] = cls_obj(ip=self.ip, ninjai=self.ninjai, info=self.info)
+
 
     def generate_prompt(self):
-        prompt_str = self.ninjai.prompt.format(**self.prompts)
+        populated_prompts = {}
+
+        for cls_name, cls_obj in self.prompts.iteritems():
+            populated_prompts[cls_name] = cls_obj.prompt()
+
+        prompt_str = self.ninjai.prompt.format(**populated_prompts)
 
         # Need to change self.ip.prompt_manager instead of the config. Changes to self.config.... will have no effect when it is loaded.
         self.ip.prompt_manager.in_template = prompt_str
@@ -131,15 +142,17 @@ class Prompt(object):
 
 class Ninjai(Plugin):
     ip = None
+    location = None
 
     # Casting version of unicode
-    # FIXME; help=... doesn't show up in --help-all, therefor it is left out
-    prompt = CUnicode('{GenericPrompt}{TestPrompt}', config=True)
+    # help=... doesn't show up in --help-all, therefor it is left out, see README.rst
+    prompt = CUnicode('{GenericPrompt} {TestState} {TestInfo} {TestRandom} >', config=True)
 
     def __init__(self, ip, config):
         super(Ninjai, self).__init__(shell=ip, config=config)
 
         self.ip = ip
+        self.location = os.path.abspath(os.path.dirname(__file__))
 
         self.setup_prompt()
         self.setup_magics()
