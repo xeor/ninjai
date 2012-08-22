@@ -8,6 +8,7 @@ Author: Jack Weaver <jack.weaver@gmail.com>
 
 import inspect
 import sys
+import datetime
 
 from IPython.core.plugin import Plugin
 from IPython.core.magic import Magics, magics_class, line_magic, cell_magic, line_cell_magic
@@ -88,6 +89,12 @@ class Prompt(object):
 
     prompts = {}
 
+    # Is sent with the ip object to each prompt handler. We can store different info here
+    # which we can get from eg different types of hooks.
+    info = {
+        'starttime': None, # Populated before each command is run with the current timedate
+        }
+
     def __init__(self, ip=None, ninjai=None):
         self.ip = ip
         self.ninjai = ninjai
@@ -115,12 +122,11 @@ class Prompt(object):
 
 
     def pre_command(self, *args):
-        # This is the function called each time you hit enter, before the command..
-        self.generate_prompt()
+        self.info['starttime'] = datetime.datetime.now()
 
     def post_command(self, *args):
-        # This is not in use yet, waiting for IPython 0.14 for this..
-        pass
+        # Will run every time the user press enter
+        self.generate_prompt()
 
 
 class Ninjai(Plugin):
@@ -146,7 +152,8 @@ class Ninjai(Plugin):
         # With both of them, we can time commands and have some timing stat in the prompt...
 
         # Currently, the only thing we have to play with is the pre_prompt_hook..
-        self.ip.set_hook('pre_prompt_hook', prompt.pre_command)
+        self.ip.set_hook('pre_run_code_hook', prompt.pre_command)
+        self.ip.set_hook('pre_prompt_hook', prompt.post_command)
 
     def setup_magics(self):
         self.ip.register_magics(DirectoryMagic(self.ip))
