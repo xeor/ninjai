@@ -146,7 +146,7 @@ class Ninjai(Plugin):
 
     # Casting version of unicode
     # help=... doesn't show up in --help-all, therefor it is left out, see README.rst
-    prompt = CUnicode('{GenericPrompt} {TestState} {TestInfo} {TestRandom} >', config=True)
+    prompt = CUnicode('{GenericPrompt} {TestState} {TestInfo} {TestRandom} {TestColor} >', config=True)
 
     def __init__(self, ip, config):
         super(Ninjai, self).__init__(shell=ip, config=config)
@@ -161,10 +161,6 @@ class Ninjai(Plugin):
     def setup_prompt(self):
         prompt = Prompt(ip=self.ip, ninjai=self)
 
-        # Use 'pre_command_hook' and 'post_command_hook' later, they are available in IPython 0.14dev..?
-        # With both of them, we can time commands and have some timing stat in the prompt...
-
-        # Currently, the only thing we have to play with is the pre_prompt_hook..
         self.ip.set_hook('pre_run_code_hook', prompt.pre_command)
         self.ip.set_hook('pre_prompt_hook', prompt.post_command)
 

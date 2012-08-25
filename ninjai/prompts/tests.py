@@ -13,10 +13,16 @@ class TestInfo(PromptHandler):
     def prompt(self):
         return 'prev_command_time(%s)' % str(self.info['starttime'])
 
-class TestBlue(PromptHandler):
+class TestColor(PromptHandler):
     def prompt(self):
-        return '{color.Blue}blue'
-
+        str = ''
+        str += '{color.Blue}b'
+        str += '{color.BlinkGreen}g'
+        str += '{color.NoColor}n'
+        str += '{color.Red}r'
+        str += '{color.Normal}N'
+        #str += ''
+        return str
 class TestRandom(PromptHandler):
     def prompt(self):
         return 'random_int(%s)' % str(random.randint(10, 1000))
